@@ -1,0 +1,154 @@
+---
+title: "Machine Learning - Peer Assessment"
+author: ' by Jorge'
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 7
+---
+
+### Executive Summary
+
+This document show the conclusion of the Peer Assessment of the Practical Machine Learning, in the Data Science specialization. This report was created with an R markdown and the HTML file was posted in the Github repository.
+
+1. Works with the training data to identify the regression analyses needed to create the final fit model. Validate the model with the validation data that it was split in the analyses process (70% training - 30% test).
+2. Execute the final model with another data to identify the prediction of the data structure. These results (20 rows test), was submitted in the other peer assessment phase with success.
+
+The data source has a lot of null columns and some control structures (datetime) that was not necessary to conduct the analyses. These columns was dropped in all files and the model was created with a validation with more than 99%% of accuracy.
+
+### Data Source
+
+The dataset represents the collected data form six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: 
+
+- Exactly according to the specification (Class A)
+- Throwing the elbows to the front (Class B)
+- Lifting the dumbbell only halfway (Class C)
+- Lowering the dumbbell only halfway (Class D)
+- Throwing the hips to the front (Class E)
+
+More information about the data structure is detailed in the link: http://groupware.les.inf.puc-rio.br/har#ixzz3JvCofC00
+
+The data source for this assessment was downloaded in the links below. There is one file to training the model that was spited in training and validation dataset, and another file (testing), had 20 cases to be predict with de final model identified in the training dataset.
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The *setwd* command was suppressed in this document because it is a personal data of the computer where the model was executed.
+
+```{r,echo=TRUE,results='hold'}
+library(caret)
+library(randomForest)
+library(e1071)
+
+# Load Training and Testing files
+URL_file_training <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+URL_file_testing <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(url = URL_file_training, destfile = "pml-training.csv",method = "curl")
+download.file(url = URL_file_testing, destfile = "pml-testing.csv",method = "curl")
+
+my_file_training <- read.csv("pml-training.csv",header = TRUE,  na.strings = c("NA",""))
+my_file_testing <- read.csv("pml-testing.csv",header = TRUE,  na.strings = c("NA",""))
+```
+
+Number of rows and columns of Training and Testing dataset, respectively.
+
+```{r,echo=TRUE}
+dim(my_file_training)
+dim(my_file_testing)
+```
+
+### Clean Data
+
+Analyzing the data is possible to identify a lot of null columns and some columns that is not necessary for this study.
+
+It was dropped 100 null columns and 7 unnecessary columns (X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp, new_window, num_window).
+
+```{r,echo=TRUE,results='hold'}
+my_file_training <- my_file_training[,(colSums(is.na(my_file_training)) == 0)]
+my_file_testing <- my_file_testing[,(colSums(is.na(my_file_testing)) == 0)]
+
+my_file_training <- my_file_training[,-c(1:7)]
+my_file_testing <- my_file_testing[,-c(1:7)]
+```
+
+Number of rows and columns of Training and Testing dataset, respectively.
+
+```{r,echo=TRUE}
+dim(my_file_training)
+dim(my_file_testing)
+```
+
+### Model the Data Analyse
+
+**Data Partition**
+
+The first step was to create a model of the clean dataset, is to split the data in Training and Validation (cross validation) structured.
+
+It was used a structure of 70% of data to the Training partition and 30% of data to the Cross Validation partition.
+
+```{r,echo=TRUE,results='hold'}
+# Dataset Partition
+my_partition <- createDataPartition(my_file_training$classe, p = 0.70, list = FALSE)
+my_training <- my_file_training[my_partition,]
+my_validation <- my_file_training[-my_partition,]
+```
+
+**Fit the Model**
+
+The second step was to use the training partition (my_training) for the random forest machine learning process.
+
+In this study was used a cross validation over 4 sets (sample and test).
+
+The main variable that we want to create the model is **Classe**. This variable was worked with all variables of the dataset, using the train command.
+
+```{r,echo=TRUE,results='hold'}
+# Fit Model
+set.seed(123)
+my_fit <- train(classe ~ ., method = "rf", data = my_training, trControl = trainControl(method = "cv", number = 4))
+```
+
+**Predict the Model**
+
+The third step was to predict the fit model with the Validation partition.
+The result of this prediction shows the accuracy and the sample error of the model (confusion matrix).
+
+```{r,echo=TRUE,results='hold'}
+# Predict Model
+my_predict_validation <- predict(my_fit, newdata = my_validation)
+confusionMatrix(my_predict_validation,my_validation$classe)
+```
+
+### Applying the Model to the Testing dataset
+
+Finally, the final model was performed in the testing dataset (20 cases), to predict the Classe for each case.
+
+The predicted results are:
+
+```{r,echo=TRUE,results='hold'}
+# Final Result - Test Data
+my_result <- predict(my_fit$finalModel, newdata = my_file_testing)
+my_result <- as.character(my_result)
+my_result
+```
+
+**Creating Final Files**
+
+How described in this peer assessment, for each result must be created a file with the Classe for each problem of the testing dataset.
+
+```{r,echo=TRUE,results='hold'}
+# Create Final Files
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("problem_id_",i,".txt")
+                write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+        }
+}
+pml_write_files(my_result)
+```
+
+### Results
+
+All files created was submitted with the correct answer.
+The accuracy of the model is higher of 99% after analyze of 52 variables, to predict the Classe result.
